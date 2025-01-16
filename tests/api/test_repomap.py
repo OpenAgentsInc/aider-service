@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 import tempfile
 import os
 from pathlib import Path
@@ -32,7 +32,7 @@ def test_generate_map_endpoint_invalid_api_key(client):
 def test_generate_map_endpoint_success(MockService, client, valid_api_key):
     """Test successful map generation."""
     # Configure the mock
-    mock_instance = MagicMock()
+    mock_instance = AsyncMock()
     mock_instance.generate_map.return_value = "Test repo map content"
     MockService.return_value = mock_instance
     
