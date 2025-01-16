@@ -12,7 +12,7 @@ def test_generate_map_endpoint_no_api_key(client):
     response = client.post("/api/v1/repomap/generate", json={
         "repo_url": "https://github.com/test/repo"
     })
-    assert response.status_code == 401  # Unauthorized
+    assert response.status_code == 403  # Forbidden - missing header
 
 
 def test_generate_map_endpoint_invalid_api_key(client):
@@ -77,11 +77,14 @@ async def test_repomap_service_generate_map(mock_repo, mock_io):
     with patch('aider.repomap.RepoMap') as MockRepoMap, \
          patch('aider.models.Model') as MockModel:
         # Configure mocks
-        instance = MockRepoMap.return_value
-        instance.get_repo_map.return_value = "Test repo map content"
-        
-        model_instance = MockModel.return_value
-        model_instance.token_count.return_value = 100
+        mock_model = MockModel.return_value
+        mock_model.token_count.return_value = 100
+        MockModel.return_value = mock_model
+
+        mock_instance = MockRepoMap.return_value
+        mock_instance.get_repo_map.return_value = "Test repo map content"
+        mock_instance.main_model = mock_model
+        MockRepoMap.return_value = mock_instance
         
         service = RepomapService()
         service.io = mock_io
@@ -93,4 +96,4 @@ async def test_repomap_service_generate_map(mock_repo, mock_io):
         )
         
         assert result == "Test repo map content"
-        assert instance.get_repo_map.called
+        assert mock_instance.get_repo_map.called
