@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
-      target: builder  # Use the builder stage for development
+      target: development
     ports:
       - "8000:8000"
     volumes:
@@ -13,16 +13,24 @@ services:
     environment:
       - AIDER_API_KEY=test-key
       - AIDER_GITHUB_TOKEN=test-token
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    mem_limit: "2g"
+    mem_reservation: "1g"
     command: uvicorn aider.api.main:app --host 0.0.0.0 --port 8000 --reload
 
   test:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
-      target: builder
+      target: development
     volumes:
       - .:/app
     environment:
       - AIDER_API_KEY=test-key
       - AIDER_GITHUB_TOKEN=test-token
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    mem_limit: "2g"
+    mem_reservation: "1g"
     command: pytest tests/api -v
