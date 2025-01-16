@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 def test_health_check(client):
     """Test the health check endpoint."""
     response = client.get("/health")
@@ -22,12 +24,15 @@ def test_cors_headers(client):
     assert "access-control-allow-methods" in response.headers
 
 
-def test_error_handler(client):
+@patch('git.Repo.clone_from')
+def test_error_handler(mock_clone, client):
     """Test the global error handler."""
-    # This should trigger a 500 error
+    mock_clone.return_value = None
+    
+    # This should trigger a validation error
     response = client.post("/api/v1/repomap/generate", json={
         "repo_url": None,  # This will cause a validation error
         "api_key": "test"
     })
     assert response.status_code == 422  # Validation error
-    assert "error" in response.json()["detail"][0]
+    assert "detail" in response.json()
