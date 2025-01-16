@@ -28,11 +28,11 @@ def test_generate_map_endpoint_invalid_api_key(client):
     assert response.status_code == 401
 
 
-@patch('aider.api.services.repomap.RepomapService')
+@patch('aider.api.routes.repomap.RepomapService')
 def test_generate_map_endpoint_success(MockService, client, valid_api_key):
     """Test successful map generation."""
     # Configure the mock
-    mock_instance = MockService.return_value
+    mock_instance = MagicMock()
     mock_instance.generate_map.return_value = "Test repo map content"
     MockService.return_value = mock_instance
     
@@ -72,28 +72,29 @@ def test_generate_map_endpoint_invalid_config(client, valid_api_key):
 
 
 @pytest.mark.asyncio
-@patch('aider.models.Model')
-@patch('aider.repomap.RepoMap')
-async def test_repomap_service_generate_map(MockRepoMap, MockModel, mock_repo, mock_io):
+async def test_repomap_service_generate_map(mock_repo, mock_io):
     """Test the RepomapService generate_map method."""
-    # Configure Model mock
-    mock_model = MagicMock()
-    mock_model.token_count.return_value = 100
-    MockModel.return_value = mock_model
+    with patch('aider.api.services.repomap.RepoMap') as MockRepoMap, \
+         patch('aider.api.services.repomap.Model') as MockModel:
+        # Configure Model mock
+        mock_model = MagicMock()
+        mock_model.token_count.return_value = 100
+        MockModel.return_value = mock_model
 
-    # Configure RepoMap mock
-    mock_repomap = MagicMock()
-    mock_repomap.get_repo_map.return_value = "Test repo map content"
-    MockRepoMap.return_value = mock_repomap
-    
-    service = RepomapService()
-    service.io = mock_io
-    
-    result = await service.generate_map(
-        str(mock_repo),
-        "test-key",
-        {"map_tokens": 512}
-    )
-    
-    assert result == "Test repo map content"
-    mock_repomap.get_repo_map.assert_called_once()
+        # Configure RepoMap mock
+        mock_repomap = MagicMock()
+        mock_repomap.get_repo_map.return_value = "Test repo map content"
+        mock_repomap.main_model = mock_model
+        MockRepoMap.return_value = mock_repomap
+        
+        service = RepomapService()
+        service.io = mock_io
+        
+        result = await service.generate_map(
+            str(mock_repo),
+            "test-key",
+            {"map_tokens": 512}
+        )
+        
+        assert result == "Test repo map content"
+        mock_repomap.get_repo_map.assert_called_once()
