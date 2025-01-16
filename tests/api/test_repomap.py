@@ -32,8 +32,9 @@ def test_generate_map_endpoint_invalid_api_key(client):
 def test_generate_map_endpoint_success(MockService, client, valid_api_key):
     """Test successful map generation."""
     # Configure the mock
-    instance = MockService.return_value
-    instance.generate_map.return_value = "Test repo map content"
+    mock_instance = MockService.return_value
+    mock_instance.generate_map.return_value = "Test repo map content"
+    MockService.return_value = mock_instance
     
     response = client.post(
         "/api/v1/repomap/generate",
