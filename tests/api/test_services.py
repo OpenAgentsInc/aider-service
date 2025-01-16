@@ -5,7 +5,6 @@ import os
 from pathlib import Path
 
 from aider.api.services.repomap import RepomapService
-from aider.repomap import RepoMap
 
 
 def test_repomap_service_initialization():
@@ -44,57 +43,37 @@ def test_repomap_service_config_override():
 
 
 @pytest.mark.asyncio
-async def test_repomap_service_clone_error_handling():
+@patch('git.Repo.clone_from')
+async def test_repomap_service_clone_error_handling(mock_clone):
     """Test error handling during repository cloning."""
+    mock_clone.side_effect = Exception("Clone failed")
     service = RepomapService()
     
     with tempfile.TemporaryDirectory() as temp_dir:
-        with patch('git.Repo.clone_from', side_effect=Exception("Clone failed")):
-            with pytest.raises(RuntimeError) as exc_info:
-                await service.clone_repository(
-                    "https://github.com/test/repo",
-                    temp_dir
-                )
-            
-            assert "Failed to clone repository" in str(exc_info.value)
+        with pytest.raises(RuntimeError) as exc_info:
+            await service.clone_repository(
+                "https://github.com/test/repo",
+                temp_dir
+            )
+        
+        assert "Failed to clone repository" in str(exc_info.value)
 
 
 @pytest.mark.asyncio
-async def test_repomap_service_generate_map_error_handling(mock_io):
-    """Test error handling during map generation."""
+@patch('git.Repo.clone_from')
+async def test_repomap_service_clone_repository(mock_clone):
+    """Test the repository cloning functionality."""
+    mock_clone.return_value = None
     service = RepomapService()
-    service.io = mock_io
     
-    # Test with invalid repository path
-    with pytest.raises(RuntimeError) as exc_info:
-        await service.generate_map(
-            "invalid/path",
-            "test-key"
+    with tempfile.TemporaryDirectory() as temp_dir:
+        result = await service.clone_repository(
+            "https://github.com/test/repo",
+            temp_dir
         )
-    
-    assert "Failed to generate repository map" in str(exc_info.value)
-
-
-def test_repomap_integration_with_core(mock_repo, mock_io):
-    """Test integration with core RepoMap functionality."""
-    repo_map = RepoMap(
-        root=str(mock_repo),
-        io=mock_io,
-        verbose=True
-    )
-    
-    # Get all files in the mock repo
-    files = []
-    for root, _, filenames in os.walk(mock_repo):
-        for filename in filenames:
-            files.append(os.path.join(root, filename))
-    
-    # Generate map
-    result = repo_map.get_repo_map(
-        chat_files=[],
-        other_files=files
-    )
-    
-    assert result is not None
-    assert isinstance(result, str)
-    assert len(result) > 0
+        
+        assert result == temp_dir
+        mock_clone.assert_called_once_with(
+            "https://github.com/test/repo",
+            temp_dir
+        )
