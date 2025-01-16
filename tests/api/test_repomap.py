@@ -28,30 +28,30 @@ def test_generate_map_endpoint_invalid_api_key(client):
     assert response.status_code == 401
 
 
-def test_generate_map_endpoint_success(client, valid_api_key, mock_repo, mock_io):
+@patch('aider.api.services.repomap.RepomapService')
+def test_generate_map_endpoint_success(MockService, client, valid_api_key, mock_repo):
     """Test successful map generation."""
-    with patch('aider.api.services.repomap.RepomapService') as MockService:
-        # Configure the mock
-        instance = MockService.return_value
-        instance.generate_map.return_value = "Test repo map content"
-        
-        response = client.post(
-            "/api/v1/repomap/generate",
-            json={
-                "repo_url": "https://github.com/test/repo",
-                "api_key": valid_api_key,
-                "config": {
-                    "map_tokens": 512,
-                    "max_context_window": 4096
-                }
-            },
-            headers={"X-API-Key": valid_api_key}
-        )
-        
-        assert response.status_code == 200
-        assert "repo_map" in response.json()
-        assert "metadata" in response.json()
-        assert response.json()["repo_map"] == "Test repo map content"
+    # Configure the mock
+    instance = MockService.return_value
+    instance.generate_map.return_value = "Test repo map content"
+    
+    response = client.post(
+        "/api/v1/repomap/generate",
+        json={
+            "repo_url": "https://github.com/test/repo",
+            "api_key": valid_api_key,
+            "config": {
+                "map_tokens": 512,
+                "max_context_window": 4096
+            }
+        },
+        headers={"X-API-Key": valid_api_key}
+    )
+    
+    assert response.status_code == 200
+    assert "repo_map" in response.json()
+    assert "metadata" in response.json()
+    assert response.json()["repo_map"] == "Test repo map content"
 
 
 def test_generate_map_endpoint_invalid_config(client, valid_api_key):
@@ -71,8 +71,11 @@ def test_generate_map_endpoint_invalid_config(client, valid_api_key):
 
 
 @pytest.mark.asyncio
-async def test_repomap_service_generate_map(mock_repo, mock_io):
+@patch('git.Repo.clone_from')
+async def test_repomap_service_generate_map(mock_clone, mock_repo, mock_io):
     """Test the RepomapService generate_map method."""
+    mock_clone.return_value = None
+    
     service = RepomapService()
     service.io = mock_io
     
@@ -89,25 +92,23 @@ async def test_repomap_service_generate_map(mock_repo, mock_io):
 
 
 @pytest.mark.asyncio
-async def test_repomap_service_clone_repository(mock_repo):
+@patch('git.Repo.clone_from')
+async def test_repomap_service_clone_repository(mock_clone):
     """Test the repository cloning functionality."""
+    mock_clone.return_value = None
     service = RepomapService()
     
     with tempfile.TemporaryDirectory() as temp_dir:
-        # Mock the git clone operation
-        with patch('git.Repo.clone_from') as mock_clone:
-            mock_clone.return_value = None
-            
-            result = await service.clone_repository(
-                "https://github.com/test/repo",
-                temp_dir
-            )
-            
-            assert result == temp_dir
-            mock_clone.assert_called_once_with(
-                "https://github.com/test/repo",
-                temp_dir
-            )
+        result = await service.clone_repository(
+            "https://github.com/test/repo",
+            temp_dir
+        )
+        
+        assert result == temp_dir
+        mock_clone.assert_called_once_with(
+            "https://github.com/test/repo",
+            temp_dir
+        )
 
 
 def test_repomap_service_config_handling():
