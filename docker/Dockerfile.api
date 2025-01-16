@@ -1,43 +1,56 @@
-FROM python:3.10-slim AS base
+# Build stage
+FROM python:3.10-slim AS builder
 
-# Install system dependencies
+# Install build dependencies
 RUN apt-get update && \
     apt-get install --no-install-recommends -y \
     build-essential \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app user
-RUN useradd -m -u 1000 -s /bin/bash appuser
-
-WORKDIR /app
-
-# Create virtual environment
+# Create venv and install dependencies
 RUN python -m venv /venv
 ENV PATH="/venv/bin:$PATH"
 
-# Create directories with proper permissions
+# Copy requirements first for better caching
+WORKDIR /app
+COPY requirements.txt requirements/requirements.in ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Production stage
+FROM python:3.10-slim
+
+# Install runtime dependencies only
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user
+RUN useradd -m -u 1000 -s /bin/bash appuser
+
+# Copy venv from builder
+COPY --from=builder /venv /venv
+ENV PATH="/venv/bin:$PATH"
+
+# Set up working directory and permissions
+WORKDIR /app
+COPY . .
+
+# Create necessary directories with proper permissions
 RUN mkdir -p /home/appuser/.aider /home/appuser/.cache && \
-    chown -R appuser:appuser /home/appuser /app /venv
-
-# So git doesn't complain about unusual permissions
-RUN git config --system --add safe.directory /app
-
-# Copy application files
-COPY . /app/
-
-# Install dependencies as root
-RUN /venv/bin/python -m pip install --upgrade --no-cache-dir pip && \
-    /venv/bin/python -m pip install --no-cache-dir -r requirements.txt
-
-# Fix site-packages permissions
-RUN find /venv/lib/python3.10/site-packages \( -type d -exec chmod a+rwx {} + \) -o \( -type f -exec chmod a+rw {} + \)
+    chown -R appuser:appuser /home/appuser /app /venv && \
+    git config --system --add safe.directory /app
 
 # Switch to appuser
 USER appuser
 
-# Expose the port the app runs on
+# Health check
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8000/health || exit 1
+
+# Expose API port
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uvicorn", "aider.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run with proper settings for production
+CMD ["uvicorn", "aider.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--proxy-headers"]
