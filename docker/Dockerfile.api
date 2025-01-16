@@ -17,17 +17,16 @@ ENV PATH="/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
+# Install uvicorn first
+RUN pip install --no-cache-dir "uvicorn[standard]>=0.24.0"
+
 # Copy requirements first for better caching
 WORKDIR /app
 COPY requirements.txt requirements/requirements.in ./
 
-# Debug: Show what's being installed
-RUN echo "Installing dependencies..." && \
-    pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir "uvicorn[standard]>=0.24.0" && \
-    echo "Installed packages:" && \
-    pip list
+# Install dependencies with optimizations
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Development stage (used for local development)
 FROM builder AS development
@@ -36,15 +35,9 @@ FROM builder AS development
 COPY . /app/
 WORKDIR /app
 
-# Debug: Verify installation and paths
-RUN echo "Python path:" && \
-    which python && \
-    echo "Uvicorn path:" && \
-    which uvicorn || true && \
-    echo "Installed packages:" && \
-    pip list && \
-    echo "Python path:" && \
-    python -c "import sys; print(sys.path)"
+# Debug: Show what's installed
+RUN echo "Installed packages:" && pip list
 
 # Command for development with hot reload
-CMD ["uvicorn", "aider.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+ENTRYPOINT ["uvicorn"]
+CMD ["aider.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
