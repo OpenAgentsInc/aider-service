@@ -31,7 +31,7 @@ psutil
 watchfiles
 pip
 fastapi
-uvicorn[standard]
+uvicorn[standard]>=0.24.0
 python-multipart
 pytest
 pytest-asyncio
