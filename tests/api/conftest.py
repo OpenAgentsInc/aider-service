@@ -3,6 +3,7 @@ from fastapi.testclient import TestClient
 import tempfile
 import os
 from pathlib import Path
+from unittest.mock import patch
 
 from aider.api.main import app
 from aider.io import InputOutput
@@ -21,6 +22,14 @@ def valid_api_key():
 @pytest.fixture
 def test_repo_url():
     return "https://github.com/test/repo"
+
+
+@pytest.fixture(autouse=True)
+def mock_git_operations():
+    """Mock all Git operations to avoid actual GitHub calls."""
+    with patch('git.Repo.clone_from') as mock_clone:
+        mock_clone.return_value = None
+        yield mock_clone
 
 
 @pytest.fixture
