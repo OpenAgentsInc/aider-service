@@ -10,15 +10,27 @@ RUN apt-get update && \
 
 # Create venv and install dependencies
 RUN python -m venv /venv
-ENV PATH="/venv/bin:$PATH"
+ENV PATH="/venv/bin:$PATH" \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 # Copy requirements first for better caching
 WORKDIR /app
 COPY requirements.txt requirements/requirements.in ./
-RUN pip install --no-cache-dir -r requirements.txt
+
+# Install dependencies with optimizations
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
+
+# Development stage (used for local development)
+FROM builder AS development
+WORKDIR /app
+CMD ["uvicorn", "aider.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # Production stage
-FROM python:3.10-slim
+FROM python:3.10-slim AS production
 
 # Install runtime dependencies only
 RUN apt-get update && \
@@ -31,7 +43,9 @@ RUN useradd -m -u 1000 -s /bin/bash appuser
 
 # Copy venv from builder
 COPY --from=builder /venv /venv
-ENV PATH="/venv/bin:$PATH"
+ENV PATH="/venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
 
 # Set up working directory and permissions
 WORKDIR /app
