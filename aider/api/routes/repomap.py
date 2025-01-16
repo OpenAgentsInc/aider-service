@@ -59,13 +59,6 @@ async def generate_repo_map(
             )
 
         try:
-            # Validate request config
-            if req.config and not isinstance(req.config.get('map_tokens'), int):
-                raise HTTPException(
-                    status_code=422,
-                    detail="map_tokens must be an integer"
-                )
-
             # Initialize service and generate map
             service = RepomapService()
             repo_map = await service.generate_map(
@@ -73,6 +66,22 @@ async def generate_repo_map(
                 api_key=api_key,
                 config=req.config
             )
+
+            if not repo_map:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to generate repository map"
+                )
+
+            # Return response
+            return RepoMapResponse(
+                repo_map=repo_map,
+                metadata={
+                    "repo_url": req.repo_url,
+                    "config": req.config or {}
+                }
+            )
+
         except HTTPException:
             raise
         except ValueError as e:
@@ -81,19 +90,11 @@ async def generate_repo_map(
                 detail=str(e)
             )
         except Exception as e:
+            logger.error(f"Error generating repo map: {e}", exc_info=True)
             raise HTTPException(
                 status_code=500,
                 detail=str(e)
             )
-        
-        # Return response
-        return RepoMapResponse(
-            repo_map=repo_map,
-            metadata={
-                "repo_url": req.repo_url,
-                "config": req.config or {}
-            }
-        )
         
     except HTTPException:
         raise
