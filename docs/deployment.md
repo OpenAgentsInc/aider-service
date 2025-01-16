@@ -4,9 +4,33 @@ This guide covers deploying the Aider Repository Map Service to DigitalOcean App
 
 ## Overview
 
-The service is designed to run as a containerized FastAPI application. We provide two deployment options:
-1. Direct deployment to App Platform using source code
-2. Container-based deployment using our Docker image
+The service can be deployed to App Platform in two ways:
+1. Container Registry deployment (Recommended for Production)
+2. Source Code deployment (Suitable for Development/Testing)
+
+## Why Container Registry Deployment?
+
+We strongly recommend the container-based approach for production because:
+
+1. **Dependency Control**:
+   - Our service requires specific system packages (git, build tools)
+   - Needs precise permission configurations for git operations
+   - Custom cache directory setup and permissions
+
+2. **Security**:
+   - Our Dockerfile implements specific security measures
+   - Runs as non-root user with exact permissions
+   - Controlled system package installation
+
+3. **Reliability**:
+   - Identical environment across all deployments
+   - Predictable git operations behavior
+   - Consistent cache handling
+
+4. **Performance**:
+   - Optimized container size
+   - Efficient layer caching
+   - Pre-built dependencies
 
 ## Prerequisites
 
@@ -17,7 +41,7 @@ The service is designed to run as a containerized FastAPI application. We provid
 
 ## Environment Variables
 
-The service requires the following environment variables:
+Required environment variables:
 
 ```
 AIDER_API_KEY=your-api-key
@@ -26,89 +50,89 @@ AIDER_MAX_TOKENS=8192
 AIDER_CACHE_DIR=/tmp/.aider.cache
 ```
 
-## Deployment Options
+## Production Deployment Steps
 
-### 1. Direct Source Deployment
+1. **Build Docker Image**:
+   ```bash
+   docker build -t aider-service -f docker/Dockerfile.api .
+   ```
 
-This is the simplest approach for development and testing:
+2. **Create DOCR Registry**:
+   ```bash
+   doctl registry create aider-service
+   ```
+
+3. **Push to DOCR**:
+   ```bash
+   # Tag the image
+   docker tag aider-service registry.digitalocean.com/aider-service/api:latest
+   
+   # Push to registry
+   docker push registry.digitalocean.com/aider-service/api:latest
+   ```
+
+4. **Deploy on App Platform**:
+   - Go to App Platform dashboard
+   - Click "Create App"
+   - Choose "Deploy from Container Registry"
+   - Select your pushed image
+   - Configure Resources (see below)
+   - Set Environment Variables
+   - Deploy
+
+## Resource Configuration
+
+Recommended App Platform resources for production:
+
+```yaml
+services:
+- name: aider-service
+  instance_count: 2  # For high availability
+  instance_size_slug: professional-xs  # 2 vCPU, 4GB RAM
+  source_dir: /
+  git:
+    repo_clone_url: https://github.com/OpenAgentsInc/aider-service.git
+    branch: main
+  health_check:
+    http_path: /health
+    port: 8000
+    initial_delay_seconds: 30
+  image:
+    registry: registry.digitalocean.com
+    registry_type: DOCR
+    repository: aider-service/api
+    tag: latest
+  envs:
+  - key: AIDER_API_KEY
+    scope: RUN_TIME
+    type: SECRET
+  - key: AIDER_GITHUB_TOKEN
+    scope: RUN_TIME
+    type: SECRET
+  - key: AIDER_MAX_TOKENS
+    scope: RUN_TIME
+    value: "8192"
+  - key: AIDER_CACHE_DIR
+    scope: RUN_TIME
+    value: "/tmp/.aider.cache"
+```
+
+## Development Deployment (Alternative)
+
+If you prefer to deploy directly from source (not recommended for production):
 
 1. Connect your GitHub repository to App Platform
 2. Create a new App
 3. Select the repository and branch
 4. Configure build settings:
-   - Build Command: `pip install -r requirements.txt`
-   - Run Command: `uvicorn aider.api.main:app --host 0.0.0.0 --port 8000`
+   ```yaml
+   build_command: pip install -r requirements.txt
+   run_command: uvicorn aider.api.main:app --host 0.0.0.0 --port 8000
+   ```
 5. Set environment variables
 6. Deploy
 
-### 2. Container-based Deployment
-
-For production, we recommend using the container-based approach:
-
-1. Build the Docker image:
-   ```bash
-   docker build -t aider-service -f docker/Dockerfile.api .
-   ```
-
-2. Push to DigitalOcean Container Registry:
-   ```bash
-   # Tag the image
-   docker tag aider-service registry.digitalocean.com/your-registry/aider-service:latest
-   
-   # Push to registry
-   docker push registry.digitalocean.com/your-registry/aider-service:latest
-   ```
-
-3. Create new App Platform app:
-   - Choose "Deploy from Container Registry"
-   - Select the pushed image
-   - Configure environment variables
-   - Deploy
-
-## Resource Configuration
-
-Recommended App Platform resources:
-
-- Basic Plan:
-  - CPU: 1 vCPU
-  - Memory: 2 GB
-  - Storage: 10 GB
-  - Instances: 1
-
-- Production Plan:
-  - CPU: 2 vCPU
-  - Memory: 4 GB
-  - Storage: 20 GB
-  - Instances: 2-3
-
-## Scaling Configuration
-
-App Platform automatic scaling settings:
-
-```yaml
-services:
-- name: aider-service
-  instance_count: 1
-  instance_size_slug: basic-xxs
-  auto_scaling:
-    min_instance_count: 1
-    max_instance_count: 3
-    metrics:
-    - type: cpu_utilization
-      target_value: 70
-```
-
-## Health Checks
-
-The service provides a health check endpoint at `/health`. Configure App Platform health check:
-
-- HTTP Path: `/health`
-- Port: 8000
-- Initial Delay: 30s
-- Period: 10s
-- Timeout: 5s
-- Success Threshold: 1
-- Failure Threshold: 3
+Note: This approach may require additional configuration to handle system dependencies and permissions.
 
 ## Monitoring
 
@@ -124,14 +148,6 @@ The service provides a health check endpoint at `/health`. Configure App Platfor
    - Error rate increase
    - Response time degradation
 
-## Logging
-
-App Platform automatically collects logs. Configure log management:
-
-1. Enable log aggregation
-2. Set log retention period
-3. Configure log forwarding (optional)
-
 ## Security Considerations
 
 1. API Key Management:
@@ -140,7 +156,7 @@ App Platform automatically collects logs. Configure log management:
    - Monitor key usage
 
 2. Network Security:
-   - Enable HTTPS
+   - Enable HTTPS (automatic with App Platform)
    - Configure CORS appropriately
    - Use App Platform's automatic SSL certificates
 
@@ -148,32 +164,41 @@ App Platform automatically collects logs. Configure log management:
    - Configure at application level
    - Use App Platform's DDoS protection
 
-## Backup and Recovery
-
-1. Database Backups:
-   - Configure automatic backups for cache storage
-   - Set retention policy
-
-2. Disaster Recovery:
-   - Document recovery procedures
-   - Test recovery process regularly
-
 ## Maintenance
 
 1. Updates:
-   - Configure automatic platform updates
-   - Schedule maintenance windows
-   - Use rolling updates
+   - Push new versions to DOCR
+   - App Platform handles rolling updates
+   - Monitor deployment health
 
 2. Monitoring:
    - Set up uptime monitoring
    - Configure error alerting
    - Monitor resource usage
 
+## Troubleshooting
+
+Common issues and solutions:
+
+1. Git Operation Failures:
+   - Check AIDER_GITHUB_TOKEN
+   - Verify container permissions
+   - Check git configuration
+
+2. Performance Issues:
+   - Monitor resource usage
+   - Check cache directory
+   - Analyze request patterns
+
+3. Deployment Failures:
+   - Check container build logs
+   - Verify environment variables
+   - Check resource limits
+
 ## Cost Optimization
 
 1. Resource Allocation:
-   - Start with Basic plan
+   - Start with Professional-xs plan
    - Monitor usage patterns
    - Scale based on demand
 
@@ -181,25 +206,6 @@ App Platform automatically collects logs. Configure log management:
    - Enable response caching
    - Configure cache TTL
    - Monitor cache hit rates
-
-## Troubleshooting
-
-Common issues and solutions:
-
-1. Deployment Failures:
-   - Check build logs
-   - Verify environment variables
-   - Check resource limits
-
-2. Performance Issues:
-   - Monitor resource usage
-   - Check database connections
-   - Analyze request patterns
-
-3. Connection Issues:
-   - Verify network settings
-   - Check DNS configuration
-   - Validate SSL certificates
 
 ## Next Steps
 
