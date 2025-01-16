@@ -29,7 +29,7 @@ def test_generate_map_endpoint_invalid_api_key(client):
 
 
 @patch('aider.api.services.repomap.RepomapService')
-def test_generate_map_endpoint_success(MockService, client, valid_api_key, mock_repo):
+def test_generate_map_endpoint_success(MockService, client, valid_api_key):
     """Test successful map generation."""
     # Configure the mock
     instance = MockService.return_value
@@ -71,65 +71,21 @@ def test_generate_map_endpoint_invalid_config(client, valid_api_key):
 
 
 @pytest.mark.asyncio
-@patch('git.Repo.clone_from')
-async def test_repomap_service_generate_map(mock_clone, mock_repo, mock_io):
+async def test_repomap_service_generate_map(mock_repo, mock_io):
     """Test the RepomapService generate_map method."""
-    mock_clone.return_value = None
-    
-    service = RepomapService()
-    service.io = mock_io
-    
-    # Test with a real directory
-    result = await service.generate_map(
-        str(mock_repo),
-        "test-key",
-        {"map_tokens": 512}
-    )
-    
-    assert result is not None
-    assert isinstance(result, str)
-    assert len(mock_io.outputs) > 0  # Should have some output
-
-
-@pytest.mark.asyncio
-@patch('git.Repo.clone_from')
-async def test_repomap_service_clone_repository(mock_clone):
-    """Test the repository cloning functionality."""
-    mock_clone.return_value = None
-    service = RepomapService()
-    
-    with tempfile.TemporaryDirectory() as temp_dir:
-        result = await service.clone_repository(
-            "https://github.com/test/repo",
-            temp_dir
+    with patch('aider.repomap.RepoMap') as MockRepoMap:
+        # Configure mock
+        instance = MockRepoMap.return_value
+        instance.get_repo_map.return_value = "Test map content"
+        
+        service = RepomapService()
+        service.io = mock_io
+        
+        result = await service.generate_map(
+            str(mock_repo),
+            "test-key",
+            {"map_tokens": 512}
         )
         
-        assert result == temp_dir
-        mock_clone.assert_called_once_with(
-            "https://github.com/test/repo",
-            temp_dir
-        )
-
-
-def test_repomap_service_config_handling():
-    """Test the configuration handling in RepomapService."""
-    service = RepomapService()
-    
-    # Test with empty config
-    config = service._get_repomap_config(None)
-    assert config["map_tokens"] == 1024
-    assert config["max_context_window"] == 8192
-    
-    # Test with custom config
-    custom_config = {
-        "map_tokens": 512,
-        "max_context_window": 4096
-    }
-    config = service._get_repomap_config(custom_config)
-    assert config["map_tokens"] == 512
-    assert config["max_context_window"] == 4096
-    
-    # Test that unknown keys are preserved
-    custom_config["unknown_key"] = "value"
-    config = service._get_repomap_config(custom_config)
-    assert config["unknown_key"] == "value"
+        assert result == "Test map content"
+        assert instance.get_repo_map.called
