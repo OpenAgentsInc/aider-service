@@ -39,19 +39,18 @@ class RepomapService:
                 # Clone repository
                 await self.clone_repository(repo_url, temp_dir)
                 
-                try:
-                    # Initialize RepoMap with validated config
-                    config_dict = self._get_repomap_config(config)
-                    if not isinstance(config_dict.get('map_tokens'), int):
-                        raise ValueError("map_tokens must be an integer")
-                
-                    repo_map = RepoMap(
-                        root=temp_dir,
-                        io=self.io,
-                        verbose=True,
-                        **config_dict
-                    )
-                
+                # Initialize RepoMap with validated config
+                config_dict = self._get_repomap_config(config)
+                if not isinstance(config_dict.get('map_tokens'), int):
+                    raise ValueError("map_tokens must be an integer")
+            
+                repo_map = RepoMap(
+                    root=temp_dir,
+                    io=self.io,
+                    verbose=True,
+                    **config_dict
+                )
+            
                 # Get all source files
                 src_files = []
                 for root, _, files in os.walk(temp_dir):
