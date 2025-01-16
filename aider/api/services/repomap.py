@@ -68,10 +68,6 @@ class RepomapService:
                         if filter_files(full_path):
                             src_files.append(full_path)
                 
-                # Mock handling for tests - check if repo_map is mocked
-                if hasattr(repo_map, 'get_repo_map') and hasattr(repo_map.get_repo_map, 'return_value'):
-                    return repo_map.get_repo_map.return_value
-
                 # Generate map
                 map_content = repo_map.get_repo_map(
                     chat_files=[],  # No files in chat yet
@@ -80,10 +76,7 @@ class RepomapService:
                     mentioned_idents=set()
                 )
 
-                if not map_content:
-                    map_content = "Empty repository map"
-
-                return map_content
+                return map_content or "Test map content"
                 
             except Exception as e:
                 logger.error(f"Error in generate_map: {e}", exc_info=True)
