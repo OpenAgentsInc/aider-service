@@ -16,10 +16,15 @@ router = APIRouter()
 api_key_header = APIKeyHeader(name="X-API-Key")
 
 async def get_api_key(api_key: str = Depends(api_key_header)) -> str:
-    if not api_key or api_key == "invalid-key":
+    if not api_key:
         raise HTTPException(
             status_code=401,
-            detail="Invalid or missing API key"
+            detail="Missing API key"
+        )
+    if api_key == "invalid-key":
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key"
         )
     return api_key
 
@@ -51,11 +56,11 @@ async def generate_repo_map(
                 detail=str(e)
             )
 
+        # Initialize service
+        service = RepomapService()
+        
+        # Generate map
         try:
-            # Initialize service
-            service = RepomapService()
-            
-            # Generate map
             repo_map = await service.generate_map(
                 repo_url=req.repo_url,
                 api_key=api_key,
@@ -64,6 +69,11 @@ async def generate_repo_map(
         except ValueError as e:
             raise HTTPException(
                 status_code=422,
+                detail=str(e)
+            )
+        except RuntimeError as e:
+            raise HTTPException(
+                status_code=500,
                 detail=str(e)
             )
         
