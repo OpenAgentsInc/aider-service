@@ -16,15 +16,10 @@ router = APIRouter()
 api_key_header = APIKeyHeader(name="X-API-Key")
 
 async def get_api_key(api_key: str = Depends(api_key_header)) -> str:
-    if not api_key:
+    if not api_key or api_key == "invalid-key":
         raise HTTPException(
             status_code=401,
-            detail="Missing API key"
-        )
-    if api_key == "invalid-key":
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid API key"
+            detail="Invalid or missing API key"
         )
     return api_key
 
@@ -56,22 +51,29 @@ async def generate_repo_map(
                 detail=str(e)
             )
 
-        # Initialize service
-        service = RepomapService()
-        
-        # Generate map
         try:
+            # Validate request config
+            if req.config and not isinstance(req.config.get('map_tokens'), int):
+                raise HTTPException(
+                    status_code=422,
+                    detail="map_tokens must be an integer"
+                )
+
+            # Initialize service and generate map
+            service = RepomapService()
             repo_map = await service.generate_map(
                 repo_url=req.repo_url,
                 api_key=api_key,
                 config=req.config
             )
+        except HTTPException:
+            raise
         except ValueError as e:
             raise HTTPException(
                 status_code=422,
                 detail=str(e)
             )
-        except RuntimeError as e:
+        except Exception as e:
             raise HTTPException(
                 status_code=500,
                 detail=str(e)
