@@ -19,12 +19,14 @@ async def get_api_key(api_key: Optional[str] = Depends(api_key_header)) -> str:
     if not api_key:
         raise HTTPException(
             status_code=401,
-            detail="Missing API key"
+            detail="Missing API key",
+            headers={"WWW-Authenticate": "ApiKey"}
         )
     if api_key == "invalid-key":
         raise HTTPException(
             status_code=401,
-            detail="Invalid API key"
+            detail="Invalid API key",
+            headers={"WWW-Authenticate": "ApiKey"}
         )
     return api_key
 
