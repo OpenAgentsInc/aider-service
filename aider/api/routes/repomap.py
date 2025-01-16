@@ -58,6 +58,13 @@ async def generate_repo_map(
                 detail=str(e)
             )
 
+        # Validate config
+        if req.config and not isinstance(req.config.get('map_tokens'), int):
+            raise HTTPException(
+                status_code=422,
+                detail="map_tokens must be an integer"
+            )
+
         try:
             # Initialize service and generate map
             service = RepomapService()
@@ -82,8 +89,6 @@ async def generate_repo_map(
                 }
             )
 
-        except HTTPException:
-            raise
         except ValueError as e:
             raise HTTPException(
                 status_code=422,
