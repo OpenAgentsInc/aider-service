@@ -16,10 +16,15 @@ router = APIRouter()
 api_key_header = APIKeyHeader(name="X-API-Key")
 
 async def get_api_key(api_key: Optional[str] = Depends(api_key_header)) -> str:
-    if not api_key or api_key == "invalid-key":
+    if not api_key:
         raise HTTPException(
             status_code=401,
-            detail="Invalid or missing API key"
+            detail="Missing API key"
+        )
+    if api_key == "invalid-key":
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key"
         )
     return api_key
 
