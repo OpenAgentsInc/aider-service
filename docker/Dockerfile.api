@@ -6,6 +6,7 @@ RUN apt-get update && \
     apt-get install --no-install-recommends -y \
     build-essential \
     git \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create venv and install dependencies
@@ -20,10 +21,13 @@ ENV PATH="/venv/bin:$PATH" \
 WORKDIR /app
 COPY requirements.txt requirements/requirements.in ./
 
-# Install dependencies with optimizations
-RUN pip install --no-cache-dir --upgrade pip && \
+# Debug: Show what's being installed
+RUN echo "Installing dependencies..." && \
+    pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir uvicorn[standard]
+    pip install --no-cache-dir "uvicorn[standard]>=0.24.0" && \
+    echo "Installed packages:" && \
+    pip list
 
 # Development stage (used for local development)
 FROM builder AS development
@@ -32,45 +36,15 @@ FROM builder AS development
 COPY . /app/
 WORKDIR /app
 
+# Debug: Verify installation and paths
+RUN echo "Python path:" && \
+    which python && \
+    echo "Uvicorn path:" && \
+    which uvicorn || true && \
+    echo "Installed packages:" && \
+    pip list && \
+    echo "Python path:" && \
+    python -c "import sys; print(sys.path)"
+
 # Command for development with hot reload
 CMD ["uvicorn", "aider.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
-
-# Production stage
-FROM python:3.10-slim AS production
-
-# Install runtime dependencies only
-RUN apt-get update && \
-    apt-get install --no-install-recommends -y \
-    git \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create app user
-RUN useradd -m -u 1000 -s /bin/bash appuser
-
-# Copy venv from builder
-COPY --from=builder /venv /venv
-ENV PATH="/venv/bin:$PATH" \
-    PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
-
-# Set up working directory and permissions
-WORKDIR /app
-COPY . .
-
-# Create necessary directories with proper permissions
-RUN mkdir -p /home/appuser/.aider /home/appuser/.cache && \
-    chown -R appuser:appuser /home/appuser /app /venv && \
-    git config --system --add safe.directory /app
-
-# Switch to appuser
-USER appuser
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Expose API port
-EXPOSE 8000
-
-# Run with proper settings for production
-CMD ["uvicorn", "aider.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--proxy-headers"]
