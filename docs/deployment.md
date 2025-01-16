@@ -1,42 +1,16 @@
 # Deployment Guide
 
-This guide covers deploying the Aider Repository Map Service to DigitalOcean App Platform.
+This guide covers deploying the Aider Repository Map Service to DigitalOcean App Platform using containers.
 
 ## Overview
 
-The service can be deployed to App Platform in two ways:
-1. Container Registry deployment (Recommended for Production)
-2. Source Code deployment (Suitable for Development/Testing)
-
-## Why Container Registry Deployment?
-
-We strongly recommend the container-based approach for production because:
-
-1. **Dependency Control**:
-   - Our service requires specific system packages (git, build tools)
-   - Needs precise permission configurations for git operations
-   - Custom cache directory setup and permissions
-
-2. **Security**:
-   - Our Dockerfile implements specific security measures
-   - Runs as non-root user with exact permissions
-   - Controlled system package installation
-
-3. **Reliability**:
-   - Identical environment across all deployments
-   - Predictable git operations behavior
-   - Consistent cache handling
-
-4. **Performance**:
-   - Optimized container size
-   - Efficient layer caching
-   - Pre-built dependencies
+The service runs as a containerized FastAPI application, using a multi-stage build process for optimal security and performance. We use the same container configuration in both development and production to maintain environment parity.
 
 ## Prerequisites
 
 1. DigitalOcean account with App Platform access
-2. GitHub repository access
-3. DigitalOcean API token
+2. Docker installed locally
+3. DigitalOcean CLI (doctl) configured
 4. Environment variables for configuration
 
 ## Environment Variables
@@ -50,169 +24,188 @@ AIDER_MAX_TOKENS=8192
 AIDER_CACHE_DIR=/tmp/.aider.cache
 ```
 
-## Production Deployment Steps
+## Local Development
 
-1. **Build Docker Image**:
+1. **Build the Container**:
    ```bash
    docker build -t aider-service -f docker/Dockerfile.api .
    ```
 
-2. **Create DOCR Registry**:
+2. **Run Locally**:
+   ```bash
+   docker run -p 8000:8000 \
+     -e AIDER_API_KEY=your-api-key \
+     -e AIDER_GITHUB_TOKEN=your-github-token \
+     aider-service
+   ```
+
+3. **Development with Hot Reload**:
+   ```bash
+   docker run -p 8000:8000 \
+     -v $(pwd):/app \
+     -e AIDER_API_KEY=your-api-key \
+     -e AIDER_GITHUB_TOKEN=your-github-token \
+     aider-service \
+     uvicorn aider.api.main:app --host 0.0.0.0 --port 8000 --reload
+   ```
+
+## Production Deployment
+
+1. **Create DOCR Registry**:
    ```bash
    doctl registry create aider-service
    ```
 
-3. **Push to DOCR**:
+2. **Build and Push**:
    ```bash
-   # Tag the image
-   docker tag aider-service registry.digitalocean.com/aider-service/api:latest
+   # Build production image
+   docker build -t registry.digitalocean.com/aider-service/api:latest -f docker/Dockerfile.api .
    
-   # Push to registry
+   # Push to DOCR
    docker push registry.digitalocean.com/aider-service/api:latest
    ```
 
-4. **Deploy on App Platform**:
-   - Go to App Platform dashboard
-   - Click "Create App"
-   - Choose "Deploy from Container Registry"
-   - Select your pushed image
-   - Configure Resources (see below)
-   - Set Environment Variables
-   - Deploy
+3. **Deploy on App Platform**:
+   ```bash
+   # Create app spec
+   cat > app.yaml << EOL
+   services:
+   - name: aider-service
+     instance_count: 2  # For high availability
+     instance_size_slug: professional-xs  # 2 vCPU, 4GB RAM
+     image:
+       registry: registry.digitalocean.com
+       registry_type: DOCR
+       repository: aider-service/api
+       tag: latest
+     health_check:
+       http_path: /health
+       port: 8000
+       initial_delay_seconds: 30
+     envs:
+     - key: AIDER_API_KEY
+       scope: RUN_TIME
+       type: SECRET
+     - key: AIDER_GITHUB_TOKEN
+       scope: RUN_TIME
+       type: SECRET
+     - key: AIDER_MAX_TOKENS
+       scope: RUN_TIME
+       value: "8192"
+     - key: AIDER_CACHE_DIR
+       scope: RUN_TIME
+       value: "/tmp/.aider.cache"
+   EOL
 
-## Resource Configuration
-
-Recommended App Platform resources for production:
-
-```yaml
-services:
-- name: aider-service
-  instance_count: 2  # For high availability
-  instance_size_slug: professional-xs  # 2 vCPU, 4GB RAM
-  source_dir: /
-  git:
-    repo_clone_url: https://github.com/OpenAgentsInc/aider-service.git
-    branch: main
-  health_check:
-    http_path: /health
-    port: 8000
-    initial_delay_seconds: 30
-  image:
-    registry: registry.digitalocean.com
-    registry_type: DOCR
-    repository: aider-service/api
-    tag: latest
-  envs:
-  - key: AIDER_API_KEY
-    scope: RUN_TIME
-    type: SECRET
-  - key: AIDER_GITHUB_TOKEN
-    scope: RUN_TIME
-    type: SECRET
-  - key: AIDER_MAX_TOKENS
-    scope: RUN_TIME
-    value: "8192"
-  - key: AIDER_CACHE_DIR
-    scope: RUN_TIME
-    value: "/tmp/.aider.cache"
-```
-
-## Development Deployment (Alternative)
-
-If you prefer to deploy directly from source (not recommended for production):
-
-1. Connect your GitHub repository to App Platform
-2. Create a new App
-3. Select the repository and branch
-4. Configure build settings:
-   ```yaml
-   build_command: pip install -r requirements.txt
-   run_command: uvicorn aider.api.main:app --host 0.0.0.0 --port 8000
+   # Create the app
+   doctl apps create --spec app.yaml
    ```
-5. Set environment variables
-6. Deploy
 
-Note: This approach may require additional configuration to handle system dependencies and permissions.
+## Container Details
+
+Our Dockerfile implements:
+
+1. **Multi-stage Build**:
+   - Builder stage for compilation and dependencies
+   - Slim production image with only runtime requirements
+
+2. **Security**:
+   - Non-root user (appuser)
+   - Minimal system dependencies
+   - Proper file permissions
+   - Secure git configuration
+
+3. **Performance**:
+   - Layer caching optimization
+   - Multi-worker uvicorn configuration
+   - Health checks
+   - Production-ready settings
+
+4. **Development Features**:
+   - Volume mounting for hot reload
+   - Environment variable handling
+   - Debug capabilities
 
 ## Monitoring
 
-1. Enable App Platform Metrics:
-   - CPU usage
-   - Memory usage
-   - Request count
+1. **Container Health**:
+   - Built-in Docker health checks
+   - App Platform metrics
+   - FastAPI endpoint monitoring
+
+2. **Alerts**:
+   - Container health status
+   - Resource usage
+   - Error rates
    - Response times
 
-2. Configure Alerts:
-   - High CPU usage (>80%)
-   - High memory usage (>80%)
-   - Error rate increase
-   - Response time degradation
+## Security
 
-## Security Considerations
+1. **Container Security**:
+   - Non-root user
+   - Minimal base image
+   - Multi-stage build
+   - Proper permissions
 
-1. API Key Management:
-   - Use App Platform's encrypted environment variables
-   - Rotate keys regularly
-   - Monitor key usage
-
-2. Network Security:
-   - Enable HTTPS (automatic with App Platform)
-   - Configure CORS appropriately
-   - Use App Platform's automatic SSL certificates
-
-3. Rate Limiting:
-   - Configure at application level
-   - Use App Platform's DDoS protection
+2. **Runtime Security**:
+   - Environment variable encryption
+   - Network isolation
+   - Resource limits
+   - Health monitoring
 
 ## Maintenance
 
-1. Updates:
-   - Push new versions to DOCR
-   - App Platform handles rolling updates
-   - Monitor deployment health
+1. **Updates**:
+   ```bash
+   # Build new version
+   docker build -t registry.digitalocean.com/aider-service/api:v1.0.1 -f docker/Dockerfile.api .
+   
+   # Push new version
+   docker push registry.digitalocean.com/aider-service/api:v1.0.1
+   
+   # Update app spec with new version
+   doctl apps update your-app-id --spec app.yaml
+   ```
 
-2. Monitoring:
-   - Set up uptime monitoring
-   - Configure error alerting
-   - Monitor resource usage
+2. **Monitoring**:
+   ```bash
+   # View app health
+   doctl apps list
+   
+   # View logs
+   doctl apps logs your-app-id
+   
+   # View metrics
+   doctl apps metrics your-app-id
+   ```
 
 ## Troubleshooting
 
-Common issues and solutions:
+1. **Container Issues**:
+   ```bash
+   # Check container logs
+   docker logs container-id
+   
+   # Inspect container
+   docker inspect container-id
+   
+   # Check health
+   docker ps --format "table {{.ID}}\t{{.Status}}\t{{.Health}}"
+   ```
 
-1. Git Operation Failures:
-   - Check AIDER_GITHUB_TOKEN
-   - Verify container permissions
-   - Check git configuration
-
-2. Performance Issues:
-   - Monitor resource usage
-   - Check cache directory
-   - Analyze request patterns
-
-3. Deployment Failures:
-   - Check container build logs
-   - Verify environment variables
-   - Check resource limits
-
-## Cost Optimization
-
-1. Resource Allocation:
-   - Start with Professional-xs plan
-   - Monitor usage patterns
-   - Scale based on demand
-
-2. Caching:
-   - Enable response caching
-   - Configure cache TTL
-   - Monitor cache hit rates
+2. **App Platform Issues**:
+   ```bash
+   # Check app status
+   doctl apps list
+   
+   # View deployment logs
+   doctl apps logs your-app-id --follow
+   ```
 
 ## Next Steps
 
-After deployment:
-
-1. Set up monitoring and alerting
-2. Configure backup schedules
-3. Document operational procedures
-4. Plan scaling strategy
-5. Implement logging analysis
+1. Set up CI/CD pipeline
+2. Configure automated testing
+3. Implement monitoring alerts
+4. Set up log aggregation
+5. Document operational procedures
