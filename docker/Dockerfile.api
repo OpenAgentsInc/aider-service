@@ -22,7 +22,8 @@ COPY requirements.txt requirements/requirements.in ./
 
 # Install dependencies with optimizations
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir uvicorn[standard]
 
 # Development stage (used for local development)
 FROM builder AS development
@@ -32,7 +33,7 @@ COPY . /app/
 WORKDIR /app
 
 # Command for development with hot reload
-CMD ["python", "-m", "uvicorn", "aider.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "aider.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # Production stage
 FROM python:3.10-slim AS production
@@ -72,4 +73,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
 EXPOSE 8000
 
 # Run with proper settings for production
-CMD ["python", "-m", "uvicorn", "aider.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--proxy-headers"]
+CMD ["uvicorn", "aider.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--proxy-headers"]
