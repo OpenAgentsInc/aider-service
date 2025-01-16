@@ -17,7 +17,6 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
     mem_limit: "2g"
     mem_reservation: "1g"
-    command: uvicorn aider.api.main:app --host 0.0.0.0 --port 8000 --reload
 
   test:
     build:
