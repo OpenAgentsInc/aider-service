@@ -78,7 +78,7 @@ async def test_repomap_service_generate_map(mock_repo, mock_io):
          patch('aider.models.Model') as MockModel:
         # Configure mocks
         instance = MockRepoMap.return_value
-        instance.get_repo_map.return_value = "Test map content"
+        instance.get_repo_map.return_value = "Test repo map content"
         
         model_instance = MockModel.return_value
         model_instance.token_count.return_value = 100
