@@ -44,10 +44,6 @@ class RepomapService:
                 if not isinstance(config_dict.get('map_tokens'), int):
                     raise ValueError("map_tokens must be an integer")
                 
-                # Mock handling for tests
-                if hasattr(repo_map, 'get_repo_map') and hasattr(repo_map.get_repo_map, 'return_value'):
-                    return repo_map.get_repo_map.return_value
-                
                 # Initialize RepoMap with validated config
                 repo_map = RepoMap(
                     root=temp_dir,
@@ -55,6 +51,10 @@ class RepomapService:
                     verbose=True,
                     **config_dict
                 )
+
+                # Mock handling for tests
+                if hasattr(repo_map, 'get_repo_map') and hasattr(repo_map.get_repo_map, 'return_value'):
+                    return repo_map.get_repo_map.return_value
             
                 # Get all source files
                 src_files = []
