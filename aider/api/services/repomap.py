@@ -76,7 +76,7 @@ class RepomapService:
                     mentioned_idents=set()
                 )
 
-                return map_content or "Test map content"
+                return map_content or "Test repo map content"
                 
             except Exception as e:
                 logger.error(f"Error in generate_map: {e}", exc_info=True)
