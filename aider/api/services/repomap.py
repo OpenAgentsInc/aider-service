@@ -77,9 +77,6 @@ class RepomapService:
                     mentioned_idents=set()
                 )
                 
-                if not map_content:
-                    raise RuntimeError("Failed to generate repository map")
-                
                 return map_content
                 
             except Exception as e:
