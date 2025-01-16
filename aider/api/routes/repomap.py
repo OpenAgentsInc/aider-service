@@ -15,7 +15,7 @@ router = APIRouter()
 # API key security scheme
 api_key_header = APIKeyHeader(name="X-API-Key")
 
-async def get_api_key(api_key: str = Depends(api_key_header)) -> str:
+async def get_api_key(api_key: Optional[str] = Depends(api_key_header)) -> str:
     if not api_key or api_key == "invalid-key":
         raise HTTPException(
             status_code=401,

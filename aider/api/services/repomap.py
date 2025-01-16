@@ -55,13 +55,22 @@ class RepomapService:
                 # Mock handling for tests
                 if hasattr(repo_map, 'get_repo_map') and hasattr(repo_map.get_repo_map, 'return_value'):
                     return repo_map.get_repo_map.return_value
+                
+                # Skip cache files
+                def filter_files(fname):
+                    return not (
+                        '.aider.tags.cache' in fname or
+                        fname.endswith('.pyc') or
+                        '/__pycache__/' in fname
+                    )
             
                 # Get all source files
                 src_files = []
                 for root, _, files in os.walk(temp_dir):
                     for file in files:
-                        if not file.startswith('.'):  # Skip hidden files
-                            src_files.append(os.path.join(root, file))
+                        full_path = os.path.join(root, file)
+                        if filter_files(full_path):
+                            src_files.append(full_path)
                 
                 # Generate map
                 map_content = repo_map.get_repo_map(
