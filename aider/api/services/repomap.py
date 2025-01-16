@@ -68,14 +68,13 @@ class RepomapService:
                         if filter_files(full_path):
                             src_files.append(full_path)
                 
-                # Generate map using the mock if available
-                if hasattr(repo_map, 'get_repo_map') and callable(repo_map.get_repo_map):
-                    map_content = repo_map.get_repo_map(
-                        chat_files=[],  # No files in chat yet
-                        other_files=src_files,
-                        mentioned_fnames=set(),
-                        mentioned_idents=set()
-                    )
+                # Generate map
+                map_content = repo_map.get_repo_map(
+                    chat_files=[],  # No files in chat yet
+                    other_files=src_files,
+                    mentioned_fnames=set(),
+                    mentioned_idents=set()
+                )
 
                 return map_content or "Test repo map content"
                 
