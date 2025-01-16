@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   api:
     build:
@@ -32,4 +30,5 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
     mem_limit: "2g"
     mem_reservation: "1g"
-    command: pytest tests/api -v
+    entrypoint: ["pytest"]
+    command: ["tests/api", "-v"]
