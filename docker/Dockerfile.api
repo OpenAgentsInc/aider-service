@@ -12,13 +12,14 @@ RUN apt-get update && \
 # Create venv and install dependencies
 RUN python -m venv /venv
 ENV PATH="/venv/bin:$PATH" \
+    PYTHONPATH="/app" \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# Install uvicorn first
-RUN pip install --no-cache-dir "uvicorn[standard]>=0.24.0"
+# Install FastAPI and uvicorn first
+RUN pip install --no-cache-dir "fastapi>=0.100.0" "uvicorn[standard]>=0.24.0"
 
 # Copy requirements first for better caching
 WORKDIR /app
@@ -36,7 +37,8 @@ COPY . /app/
 WORKDIR /app
 
 # Debug: Show what's installed
-RUN echo "Installed packages:" && pip list
+RUN echo "Installed packages:" && pip list && \
+    echo "Python path:" && python -c "import sys; print('\n'.join(sys.path))"
 
 # Command for development with hot reload
 ENTRYPOINT ["uvicorn"]
