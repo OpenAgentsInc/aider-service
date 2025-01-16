@@ -9,12 +9,6 @@ from aider.api.main import app
 from aider.io import InputOutput
 
 
-class MockModel:
-    def token_count(self, text):
-        # Simple mock implementation - roughly 4 chars per token
-        return len(text) // 4 + 1
-
-
 @pytest.fixture
 def client():
     return TestClient(app)
@@ -36,6 +30,14 @@ def mock_git_operations():
     with patch('git.Repo.clone_from') as mock_clone:
         mock_clone.return_value = None
         yield mock_clone
+
+
+@pytest.fixture(autouse=True)
+def mock_litellm():
+    """Mock litellm to avoid actual API calls."""
+    with patch('litellm.completion') as mock_completion:
+        mock_completion.return_value = MagicMock()
+        yield mock_completion
 
 
 @pytest.fixture
@@ -82,13 +84,3 @@ def mock_io():
                 return None
     
     return MockIO()
-
-
-@pytest.fixture(autouse=True)
-def mock_main_model():
-    """Mock the main_model in RepoMap."""
-    with patch('aider.repomap.RepoMap') as mock_repomap:
-        instance = mock_repomap.return_value
-        instance.main_model = MockModel()
-        instance.get_repo_map.return_value = "Test repo map content"
-        yield instance
