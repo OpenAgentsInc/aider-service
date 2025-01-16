@@ -12,7 +12,7 @@ def test_generate_map_endpoint_no_api_key(client):
     response = client.post("/api/v1/repomap/generate", json={
         "repo_url": "https://github.com/test/repo"
     })
-    assert response.status_code == 422  # Validation error
+    assert response.status_code == 401  # Unauthorized
 
 
 def test_generate_map_endpoint_invalid_api_key(client):

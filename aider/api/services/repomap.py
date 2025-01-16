@@ -73,11 +73,14 @@ class RepomapService:
     
     def _get_repomap_config(self, config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Extract RepoMap configuration from request config."""
+        from ...models import Model
+
         default_config = {
             "map_tokens": 1024,
             "max_context_window": 8192,
             "map_mul_no_files": 8,
-            "refresh": "auto"
+            "refresh": "auto",
+            "main_model": Model("gpt-3.5-turbo")
         }
         
         if config:
