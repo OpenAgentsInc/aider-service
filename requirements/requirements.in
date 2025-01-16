@@ -33,6 +33,11 @@ pip
 fastapi
 uvicorn[standard]
 python-multipart
+pytest
+pytest-asyncio
+pytest-cov
+httpx
+pytest-env
 
 # The proper dependency is networkx[default], but this brings
 # in matplotlib and a bunch of other deps
