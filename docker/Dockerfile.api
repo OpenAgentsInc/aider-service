@@ -18,8 +18,14 @@ ENV PATH="/venv/bin:$PATH" \
     PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
 
-# Install FastAPI and uvicorn first
-RUN pip install --no-cache-dir "fastapi>=0.100.0" "uvicorn[standard]>=0.24.0"
+# Install core dependencies first
+RUN pip install --no-cache-dir \
+    "fastapi>=0.100.0" \
+    "uvicorn[standard]>=0.24.0" \
+    "pytest>=7.0.0" \
+    "pytest-asyncio>=0.21.0" \
+    "pytest-cov>=4.1.0" \
+    "httpx>=0.24.0"
 
 # Copy requirements first for better caching
 WORKDIR /app
@@ -38,8 +44,9 @@ WORKDIR /app
 
 # Debug: Show what's installed
 RUN echo "Installed packages:" && pip list && \
-    echo "Python path:" && python -c "import sys; print('\n'.join(sys.path))"
+    echo "Python path:" && python -c "import sys; print('\n'.join(sys.path))" && \
+    echo "Pytest version:" && pytest --version
 
 # Command for development with hot reload
-ENTRYPOINT ["uvicorn"]
-CMD ["aider.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+ENTRYPOINT ["python", "-m"]
+CMD ["uvicorn", "aider.api.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
