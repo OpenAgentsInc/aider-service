@@ -92,5 +92,5 @@ async def test_repomap_service_generate_map(mock_repo, mock_io):
             {"map_tokens": 512}
         )
         
-        assert result == "Test map content"
+        assert result == "Test repo map content"
         assert instance.get_repo_map.called
