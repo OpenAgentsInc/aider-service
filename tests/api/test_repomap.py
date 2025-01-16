@@ -73,10 +73,14 @@ def test_generate_map_endpoint_invalid_config(client, valid_api_key):
 @pytest.mark.asyncio
 async def test_repomap_service_generate_map(mock_repo, mock_io):
     """Test the RepomapService generate_map method."""
-    with patch('aider.repomap.RepoMap') as MockRepoMap:
-        # Configure mock
+    with patch('aider.repomap.RepoMap') as MockRepoMap, \
+         patch('aider.models.Model') as MockModel:
+        # Configure mocks
         instance = MockRepoMap.return_value
         instance.get_repo_map.return_value = "Test map content"
+        
+        model_instance = MockModel.return_value
+        model_instance.token_count.return_value = 100
         
         service = RepomapService()
         service.io = mock_io

@@ -33,6 +33,6 @@ def test_error_handler(mock_clone, client):
     response = client.post("/api/v1/repomap/generate", json={
         "repo_url": None,  # This will cause a validation error
         "api_key": "test"
-    })
+    }, headers={"X-API-Key": "test"})
     assert response.status_code == 422  # Validation error
     assert "detail" in response.json()
