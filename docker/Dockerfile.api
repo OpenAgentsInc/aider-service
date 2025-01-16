@@ -1,0 +1,43 @@
+FROM python:3.10-slim AS base
+
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install --no-install-recommends -y \
+    build-essential \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app user
+RUN useradd -m -u 1000 -s /bin/bash appuser
+
+WORKDIR /app
+
+# Create virtual environment
+RUN python -m venv /venv
+ENV PATH="/venv/bin:$PATH"
+
+# Create directories with proper permissions
+RUN mkdir -p /home/appuser/.aider /home/appuser/.cache && \
+    chown -R appuser:appuser /home/appuser /app /venv
+
+# So git doesn't complain about unusual permissions
+RUN git config --system --add safe.directory /app
+
+# Copy application files
+COPY . /app/
+
+# Install dependencies as root
+RUN /venv/bin/python -m pip install --upgrade --no-cache-dir pip && \
+    /venv/bin/python -m pip install --no-cache-dir -r requirements.txt
+
+# Fix site-packages permissions
+RUN find /venv/lib/python3.10/site-packages \( -type d -exec chmod a+rwx {} + \) -o \( -type f -exec chmod a+rw {} + \)
+
+# Switch to appuser
+USER appuser
+
+# Expose the port the app runs on
+EXPOSE 8000
+
+# Command to run the application
+CMD ["uvicorn", "aider.api.main:app", "--host", "0.0.0.0", "--port", "8000"]
