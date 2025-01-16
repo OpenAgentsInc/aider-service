@@ -8,6 +8,7 @@ from pathlib import Path
 
 from ...repomap import RepoMap
 from ...io import InputOutput
+from ...models import Model
 
 logger = logging.getLogger(__name__)
 
@@ -75,8 +76,11 @@ class RepomapService:
                     mentioned_fnames=set(),
                     mentioned_idents=set()
                 )
-
-                return map_content or "Test repo map content"
+                
+                if not map_content:
+                    raise RuntimeError("Failed to generate repository map")
+                
+                return map_content
                 
             except Exception as e:
                 logger.error(f"Error in generate_map: {e}", exc_info=True)
@@ -84,8 +88,6 @@ class RepomapService:
     
     def _get_repomap_config(self, config: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
         """Extract RepoMap configuration from request config."""
-        from ...models import Model
-
         default_config = {
             "map_tokens": 1024,
             "max_context_window": 8192,
@@ -95,6 +97,9 @@ class RepomapService:
         }
         
         if config:
+            # Don't override main_model from config
+            model = default_config["main_model"]
             default_config.update(config)
+            default_config["main_model"] = model
             
         return default_config
